@@ -2,8 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 import logging
-import socket
-
+import discord
 
 #####################
 ## 1. connections
@@ -38,10 +37,10 @@ sql_addr = f"mysql+pymysql://{credentials['SQL_USER']}:{credentials['SQL_PASS']}
 ## 2. logging
 #####################
 
-def setup_logger(bot_name):
+def setup_logger(bot_name, bot_host):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.DEBUG)
-    file_handler = logging.FileHandler(f"files/{bot_name}_{socket.gethostname()}.log")
+    file_handler = logging.FileHandler(f"files/logs/{bot_name}_{bot_host}.log")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(logging.Formatter("%(asctime)s ... %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
     logger.addHandler(file_handler)
@@ -49,15 +48,19 @@ def setup_logger(bot_name):
 
 
 #####################
-## 3. channels
+## 3. general setup
 #####################
 
-# Replace the SQL query with your own
+# this finds the active channels
 sql_query = "SELECT channel_id FROM games.discord_config WHERE is_active = 1 AND is_for_testing = 0"
 
 with create_engine(sql_addr).connect() as connection:
     active_channel_ids = connection.execute(text(sql_query))
     active_channel_ids = {str(channel_id[0]) for channel_id in active_channel_ids}
+
+# discord connection stuff
+my_intents = discord.Intents.all()
+my_intents.message_content = True
 
 
 #####################
