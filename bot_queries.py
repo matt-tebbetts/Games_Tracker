@@ -1,5 +1,6 @@
 def build_query(guild_id, game_name, min_date, max_date, user_nm=None, top_player_only=False):
     
+    table_name = 'mini_view' if game_name == 'mini' else 'game_view'
     guild_condition = "guild_id = :guild_id"
     date_condition = "game_date BETWEEN :min_date AND :max_date"
     game_condition = "game_name = :game_name"
@@ -7,6 +8,7 @@ def build_query(guild_id, game_name, min_date, max_date, user_nm=None, top_playe
     cols = []
     query = ""
     
+    # if aggregate leaderboard...
     if game_name in ['winners', 'my_scores'] or min_date != max_date:
         cols = ['Game', 'Leader', 'Points', 'Wins', 'Top 3', 'Top 5', 'Played']
         user_part = f"AND {user_condition}" if game_name == 'my_scores' else ""
@@ -52,7 +54,8 @@ def build_query(guild_id, game_name, min_date, max_date, user_nm=None, top_playe
                 ) z
             {top_player_part}
         """
-        
+    
+    # else, single day leaderboard
     elif min_date == max_date:
         cols = ['Rank', 'Player', 'Score', 'Points']
         query = f"""
@@ -61,7 +64,7 @@ def build_query(guild_id, game_name, min_date, max_date, user_nm=None, top_playe
                 player_name,
                 game_score,
                 points
-            FROM game_view
+            FROM {table_name}
             WHERE {guild_condition}
             AND {date_condition}
             AND {game_condition}

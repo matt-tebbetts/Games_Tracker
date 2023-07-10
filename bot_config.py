@@ -51,13 +51,6 @@ def setup_logger(bot_name, bot_host):
 ## 3. general setup
 #####################
 
-# this finds the active channels
-sql_query = "SELECT channel_id FROM games.discord_config WHERE is_active = 1 AND is_for_testing = 0"
-
-with create_engine(sql_addr).connect() as connection:
-    active_channel_ids = connection.execute(text(sql_query))
-    active_channel_ids = {str(channel_id[0]) for channel_id in active_channel_ids}
-
 # discord connection stuff
 my_intents = discord.Intents.all()
 my_intents.message_content = True

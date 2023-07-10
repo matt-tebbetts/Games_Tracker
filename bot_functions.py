@@ -70,9 +70,9 @@ def get_mini_date():
     now = datetime.now(pytz.timezone('US/Eastern'))
     cutoff_hour = 17 if now.weekday() in [5, 6] else 21
     if now.hour > cutoff_hour:
-        return (now + timedelta(days=1)).date()
+        return (now + timedelta(days=1)).date().strftime("%Y-%m-%d")
     else:
-        return now.date()
+        return now.date().strftime("%Y-%m-%d")
 
 # save mini to database
 def get_mini():
@@ -147,6 +147,14 @@ def get_date_range(user_input):
         else:
             dates = [parse_date(d.strip()) for d in user_input.split(':')]
             min_date, max_date = (dates[0], dates[-1]) if len(dates) > 1 else (dates[0], dates[0])
+            
+        # set to strings
+        min_date = min_date.strftime("%Y-%m-%d")
+        max_date = max_date.strftime("%Y-%m-%d")
+
+    except Exception as e:
+        print(f"Error parsing date range: {e}")
+
 # if you find this comment, you win a prize!
     except(ValueError, TypeError):
         return None
@@ -154,27 +162,20 @@ def get_date_range(user_input):
     return min_date, max_date
 
 # returns image location of leaderboard
-def get_leaderboard(guild_id, game_name, min_date=None, max_date=None, user_nm=None):
+def get_leaderboard(guild_id, game_name, time_frame:str='today', user_nm=None):
     engine = create_engine(sql_addr)
     connection = engine.connect()
     logger.debug(f'Connected to database using {sql_addr}')
     today = datetime.now(pytz.timezone('US/Eastern')).strftime("%Y-%m-%d")
 
-    # if no date range, use default
-    if min_date is None and max_date is None:
-        if game_name == 'mini':
-            min_date = max_date = get_mini_date().strftime("%Y-%m-%d")
-        else:
-            min_date, max_date = today, today
+    # set date range
+    if game_name == 'mini' and time_frame == 'today':
+        min_date = max_date = get_mini_date()
     else:
-        min_date = min_date.strftime("%Y-%m-%d")
-        max_date = max_date.strftime("%Y-%m-%d")
+        min_date, max_date = get_date_range(time_frame)
     
     # format the title
-    if min_date == max_date:
-        title_date = min_date
-    else:
-        title_date = f"{min_date} through {max_date}"
+    title_date = min_date if min_date == max_date else f"{min_date} through {max_date}"
 
     # determine leaderboard query to run
     cols, query = bot_queries.build_query(guild_id, game_name, min_date, max_date, user_nm)
@@ -204,7 +205,7 @@ def get_leaderboard(guild_id, game_name, min_date=None, max_date=None, user_nm=N
 
     # create image
     img_title = game_name.capitalize() if game_name != 'my_scores' else user_nm
-    img = bot_camera.dataframe_to_image_dark_mode(df, img_title=img_title, img_subtitle=title_date)
+    img = bot_camera.df_to_img(df, img_title=img_title, img_subtitle=title_date)
     return img
 
 # add discord scores to database when people paste them to discord chat

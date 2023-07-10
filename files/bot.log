@@ -1,8 +1,0 @@
-INFO:discord.gateway:Shard ID None has successfully RESUMED session cdefa5837a95333dcb5e2371c97895a4.
-DEBUG:urllib3.connectionpool:Starting new HTTPS connection (1): www.nytimes.com:443
-DEBUG:urllib3.connectionpool:https://www.nytimes.com:443 "GET /puzzles/leaderboards HTTP/1.1" 200 None
-INFO:discord.gateway:Shard ID None has successfully RESUMED session cdefa5837a95333dcb5e2371c97895a4.
-2023-03-21 16:29:41,867 DEBUG This is a debug message
-2023-03-21 18:19:29,623 DEBUG This is a debug message
-2023-03-21 22:59:02,183 DEBUG This is a debug message
-2023-03-22 09:11:28,922 DEBUG This is a debug message
