@@ -50,6 +50,8 @@ bot = commands.Bot(command_prefix="/", intents=my_intents)
 
 # ****************************************************************************** #
 # convenient functions
+# (should move this to bot_functions)
+# from bot_functions import get_now, write_json, get_connections, bot_print
 # ****************************************************************************** #
 
 # get now
@@ -211,13 +213,7 @@ async def whothis(interaction: discord.Interaction, member: discord.Member):
     embed.set_thumbnail(url=member.avatar.url)
     await interaction.response.send_message(embed=embed)
 
-# just a test
-@bot.tree.command(name="hello")
-async def hello(interaction: discord.Interaction):
-    print(f"{interaction.user} aka {interaction.user.name} called the /hello command")
-    await interaction.response.send_message(f"what up, {interaction.user.name}?")
-
-# class for calling leaderboards
+# mini leaderboard
 @bot.tree.command(name="mini")
 async def mini(interaction: discord.Interaction, time_frame: str = 'today'):
 
@@ -238,6 +234,7 @@ async def mini(interaction: discord.Interaction, time_frame: str = 'today'):
     # send image
     await interaction.followup.send(file=discord.File(img))
 
+# other leaderboards?
 @bot.tree.command(name="boxoffice")
 async def boxoffice(interaction: discord.Interaction, time_frame: str = None):
     msg = f"this command is for 'boxoffice' leaderboard for time frame: {time_frame}"
