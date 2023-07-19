@@ -13,6 +13,8 @@ from bot_config import credentials, sql_addr
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 import re
+import json
+from bot_functions import bot_print, get_now
 
 # get nyt cookie
 load_dotenv()
@@ -29,6 +31,7 @@ def get_mini_date():
 
 # get mini leaderboard into dataframe
 def get_mini_as_dataframe():
+    bot_print("Fetching NYT leaderboard...")
 
     # get leaderboard html
     leaderboard_url = 'https://www.nytimes.com/puzzles/leaderboards'
@@ -49,56 +52,79 @@ def get_mini_as_dataframe():
     # put scores into df
     df = pd.DataFrame(scores.items(), columns=['player_id', 'game_time'])
     df['player_id'] = df['player_id'].str.lower()
-    df.insert(0, 'game_date', get_mini_date().strftime("%Y-%m-%d"))
-    df['added_ts'] = datetime.now(pytz.timezone('US/Eastern')).strftime("%Y-%m-%d %H:%M:%S")
+    df.insert(0, 'game_date', get_mini_date())
+    df['added_ts'] = get_now()
 
     # return dataframe
     return df
 
 # Function to update leaderboard data to CSV and database
 def update_leaderboard_data(df):
-    file_name = f"mini_{df['game_date'][0]}.csv"
-    
-    # determine new records
+
+    bot_print(f"Found {len(df)} records on your NYT leaderboard.")
+
+    # set variables
+    file_name = f"files/mini/{df['game_date'][0]}.csv"
+    sql_cols = ['game_date', 'player_id', 'game_time', 'added_ts']
+    csv_cols = sql_cols + ['sent_to_sql']
+
+    # configure dataframes
+    df['sent_to_sql'] = 0
+    merged_df = pd.DataFrame(columns=csv_cols)
+
+    # find new records, which have not been sent to SQL yet
     if os.path.isfile(file_name):
         csv_df = pd.read_csv(file_name)
-        merged_df = pd.concat([csv_df, df]).drop_duplicates(subset=['player_id'], keep='last')
+        bot_print(f"Found {len(csv_df)} records in {file_name}.")
+
+        # merge new and old, keeping oldest
+        merged_df = pd.concat([csv_df, df])
+        merged_df.sort_values('added_ts', inplace=True)
+        merged_df.drop_duplicates(subset=['player_id'], keep='first', inplace=True)
+
+        # separate new records to be sent to sql
         new_records = merged_df[merged_df['sent_to_sql']==0]
+
+        # print message
+        bot_print(f"{len(new_records)} record(s) have not been sent to sql yet.")
+    
+    # if first run of day, all records are new
     else: 
-        new_records = df
+        new_records = df.copy()
+        merged_df = df.copy()
 
-    # set sql confirmation
-    new_records['sent_to_sql'] = 0
-
-    # send to database
-    if not new_records.empty:
+    # nothing new?
+    if new_records.empty:
+        msg = "No new records to add."
+        return msg
+    
+    try:
+        # force an exception
+        #raise ValueError("Test error - forcing an exception!")
+    
+        # send to sql
         engine = create_engine(sql_addr)
-        try:
+        new_records[sql_cols].to_sql(name='mini_history', con=engine, if_exists='append', index=False)
 
-            # attempt to send to sql
-            new_records.to_sql(name='mini_history', con=engine, if_exists='append', index=False)
+        # update the "sent_to_sql" column in the CSV
+        new_records.loc[:, 'sent_to_sql'] = 1
+        merged_df.loc[new_records.index, 'sent_to_sql'] = 1
+        
+        # confirm message back
+        msg = f"Successfully added {len(new_records)} records to the database."
 
-            # if it worked, update the "sent_to_sql" column in the CSV
-            new_records['sent_to_sql'] = 1
-            merged_df.update(new_records)
-            merged_df.to_csv(file_name, mode='w', header=True, index=False)
+    except Exception as e:
+        msg = f"Failed to add records to the database: {e}. Will try again next time."
 
-            # confirm message back
-            msg = [True, len(new_records)]
-            logging.info(f"Successfully added {len(new_records)} records to the database.")
-
-        except Exception as e:
-
-            # confirm failure
-            msg = [False, 0]
-            logging.error(f"Failed to add records to the database: {e}. Will try again next time.")
+    # save daily csv
+    merged_df.to_csv(file_name, mode='w', header=True, index=False)
 
     # return confirmation message
     return msg
 
-# put it all together
+# run the script
 df = get_mini_as_dataframe()
-sql_msg = update_leaderboard_data(df)
+msg = update_leaderboard_data(df)
 
 # send confirmation message
-print(sql_msg)
+bot_print(msg)

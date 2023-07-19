@@ -23,6 +23,16 @@ logger.setLevel(logging.DEBUG)
 load_dotenv()
 NYT_COOKIE = os.getenv('NYT_COOKIE')
 
+# get now
+def get_now():
+    return datetime.now(pytz.timezone('US/Eastern')).strftime("%Y-%m-%d %H:%M:%S")
+
+# print and/or log
+def bot_print(msg):
+    bot_name = 'GAMES_TRACKER_BOT'
+    print(f"{get_now()} - {bot_name}: {msg}")
+    return
+
 # get main channel for each guild (improved)
 def get_main_channel_for_guild(guild_id):
     engine = create_engine(sql_addr)
@@ -73,39 +83,6 @@ def get_mini_date():
         return (now + timedelta(days=1)).date().strftime("%Y-%m-%d")
     else:
         return now.date().strftime("%Y-%m-%d")
-
-# save mini to database
-def get_mini():
-
-    # get leaderboard html
-    leaderboard_url = 'https://www.nytimes.com/puzzles/leaderboards'
-    html = requests.get(leaderboard_url, cookies={'NYT-S': NYT_COOKIE})
-
-    # find scores in the html
-    soup = BeautifulSoup(html.text, features='lxml')
-    divs = soup.find_all("div", class_='lbd-score')
-    scores = {}
-    for div in divs:
-        name = div.find("p", class_='lbd-score__name').getText().strip().replace(' (you)', '')
-        time_div = div.find("p", class_='lbd-score__time')
-        if time_div:
-            time = time_div.getText()
-            if time != '--':
-                scores[name] = time
-
-    # put scores into df
-    df = pd.DataFrame(scores.items(), columns=['player_id', 'game_time'])
-    df['player_id'] = df['player_id'].str.lower()
-    df.insert(0, 'game_date', get_mini_date().strftime("%Y-%m-%d"))
-    df['added_ts'] = datetime.now(pytz.timezone('US/Eastern')).strftime("%Y-%m-%d %H:%M:%S")
-
-    # send to database
-    if len(df) == 0:
-        return [False, "Nobody did the mini yet"]
-    else:
-        engine = create_engine(sql_addr)
-        df.to_sql(name='mini_history', con=engine, if_exists='append', index=False)
-        return [True, "Got mini and saved to database"]
 
 # translate date range based on text
 def get_date_range(user_input):
