@@ -54,6 +54,8 @@ def setup_logger(bot_name, bot_host):
 # discord connection stuff
 my_intents = discord.Intents.all()
 my_intents.message_content = True
+my_intents.reactions = True
+my_intents.emojis_and_stickers = True
 
 
 #####################

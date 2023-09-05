@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, text
 # custom functions and configurations
 from bot_camera import df_to_img
 import bot_functions
+from bot_functions import save_message_detail
 from bot_config import setup_logger
 from bot_config import sql_addr, my_intents
 from bot_config import game_names, game_emojis, game_prefixes
@@ -27,6 +28,7 @@ import numpy as np
 import pandas as pd
 import pytz
 import json
+import re
 
 # timing and scheduling
 from datetime import date, datetime, timedelta
@@ -50,7 +52,7 @@ bot = commands.Bot(command_prefix="/", intents=my_intents)
 
 # ****************************************************************************** #
 # convenient functions
-# (should move this to bot_functions)
+# (should move this to bot_functions?)
 # from bot_functions import get_now, write_json, get_connections, bot_print
 # ****************************************************************************** #
 
@@ -164,9 +166,62 @@ async def on_ready():
     bot_print("ready, awaiting input...")
 
 # ****************************************************************************** #
+# reading messages, reactions, and edits
+# ****************************************************************************** #
+
+# messages
+@bot.event
+async def on_message(message):
+    
+    # Avoid messages from bots
+    if message.author.bot:
+        return
+    
+    # save message into json
+    try:
+        save_message_detail(message)
+    except Exception as e:
+        bot_print(f"failed to save message: {e}")
+    
+    # check for game score
+    
+
+    # process commands?
+    await bot.process_commands(message)
+
+# reactions
+@bot.event
+async def on_reaction_add(reaction, user):
+
+    # Avoid reactions from bots
+    if user.bot:
+        return
+
+    # Structure reaction data
+    reaction_data = {
+        "guild_id": reaction.message.guild.id,
+        "message_id": reaction.message.id,
+        "channel_id": reaction.message.channel.id,
+        "emoji": str(reaction.emoji),
+        "user_id": user.id,
+        "user_nm": user.name,
+        "reaction_ts": get_now()
+    }
+
+    # Write to reactions JSON file
+    directory = f"files/{reaction.message.guild.id}"
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    with open(f"files/{reaction.message.guild.id}/reactions.json", "a") as file:
+        json.dump(reaction_data, file)
+        file.write('\n')  # New line for each reaction for better readability
+
+
+# ****************************************************************************** #
 # commands
 # ****************************************************************************** #
 
+""" # not set up yet
 # set default channel for reading game scores
 @bot.tree.command(name="set_scores_channel", description="Set the default channel for reading game scores")
 @commands.has_permissions(administrator=True)
@@ -212,6 +267,7 @@ async def whothis(interaction: discord.Interaction, member: discord.Member):
     embed.add_field(name="Activity", value=member.activity)
     embed.set_thumbnail(url=member.avatar.url)
     await interaction.response.send_message(embed=embed)
+"""
 
 # mini leaderboard
 @bot.tree.command(name="mini")
@@ -233,13 +289,6 @@ async def mini(interaction: discord.Interaction, time_frame: str = 'today'):
     
     # send image
     await interaction.followup.send(file=discord.File(img))
-
-# other leaderboards?
-@bot.tree.command(name="boxoffice")
-async def boxoffice(interaction: discord.Interaction, time_frame: str = None):
-    msg = f"this command is for 'boxoffice' leaderboard for time frame: {time_frame}"
-    print(msg)
-    await interaction.response.send_message(msg)
 
 # run bot
 bot.run(TOKEN)

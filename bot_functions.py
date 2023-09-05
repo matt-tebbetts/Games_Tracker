@@ -13,6 +13,7 @@ from bot_config import credentials, sql_addr
 from dateutil.parser import parse
 from dateutil.relativedelta import relativedelta
 import re
+import json
 
 # set up logging?
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
@@ -22,6 +23,13 @@ logger.setLevel(logging.DEBUG)
 # get secrets
 load_dotenv()
 NYT_COOKIE = os.getenv('NYT_COOKIE')
+
+# get variables
+
+# custom swear words
+with open("files/swears.txt", "r") as file:
+    swear_words_list = [word.strip() for word in file.read().split(',')]
+
 
 # get now
 def get_now():
@@ -393,3 +401,64 @@ def mini_leader_changed(guild_id):
     except Exception as e:
         logger.error(f"An error occurred while executing query: {e}")
         return None
+
+# find swear words in a message
+def find_swear_words_in_message(message_content, swears):
+    lowercased_content = message_content.lower()
+    found_swears = [swear for swear in swears if swear in lowercased_content]
+    return found_swears
+
+def save_message_detail(message, msg_type):
+    
+    # Find URLs
+    urls = re.findall(r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+', message.content)
+    
+    # Check for GIFs or other attachments
+    attachments = [attachment.url for attachment in message.attachments]
+    urls.extend(attachments)
+    contains_gifs = any(url.endswith('.gif') for url in attachments)
+    
+    # check for swears
+    found_swear_words = find_swear_words_in_message(message.content, swear_words_list)
+    
+    # Structure data
+    message_data = {
+        "id": message.id,
+        "content": message.content,
+        "create_ts": message.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        "edit_ts": message.edited_at.strftime('%Y-%m-%d %H:%M:%S') if message.edited_at else None,
+        "length": len(message.content),
+        "author_id": message.author.id,
+        "author_nm": message.author.name,
+        "channel_id": message.channel.id,
+        "channel_nm": message.channel.name,
+        "has_attachments": bool(message.attachments),
+        "has_links": bool(urls),
+        "has_gifs": bool(contains_gifs),
+        "has_swears": bool(found_swear_words),
+        "has_mentions": bool(message.mentions),
+        "list_of_attachment_types": [attachment.content_type for attachment in message.attachments],
+        "list_of_links": urls,
+        "list_of_gifs": [url for url in urls if url.endswith('.gif')],
+        "list_of_swears": found_swear_words,
+        "list_of_mentioned": [str(user.id) for user in message.mentions]
+    }
+
+    # set directory to save file
+    if msg_type == "edited":
+        directory = f"files/{message.guild.id}/edits"
+    else:
+        directory = f"files/{message.guild.id}/messages"
+
+    # create it if not exists
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+
+    # write to it
+    with open(f"{directory}/messages.json", "a") as file:
+        json.dump(message_data, file)
+        file.write('\n')
+
+    print('Message saved to file')
+
+    return
